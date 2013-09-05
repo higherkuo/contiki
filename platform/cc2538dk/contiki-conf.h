@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "ssi.h"
 /*---------------------------------------------------------------------------*/
 /* Include Project Specific conf */
 #ifdef PROJECT_CONF_H
@@ -38,6 +39,31 @@ typedef uint32_t uip_stats_t;
  */
 typedef uint32_t rtimer_clock_t;
 #define RTIMER_CLOCK_LT(a,b)     ((int32_t)((a)-(b)) < 0)
+/** @} */
+
+/*---------------------------------------------------------------------------*/
+/**
+ * \name SPI configuration
+ *
+ * These values configure which CC2538 pins to use for the SPI lines.
+ * @{
+ */
+#define CC2538_SPI_CLK_PORT_NUM  GPIO_A_NUM
+#define CC2538_SPI_CLK_PIN_NUM   2
+#define CC2538_SPI_MOSI_PORT_NUM GPIO_A_NUM
+#define CC2538_SPI_MOSI_PIN_NUM  4
+#define CC2538_SPI_MISO_PORT_NUM GPIO_A_NUM
+#define CC2538_SPI_MISO_PIN_NUM  5
+#define CC2538_SPI_SEL_PORT_NUM  GPIO_B_NUM
+#define CC2538_SPI_SEL_PIN_NUM   5
+
+#define SPI_WAITFORTxREADY() do { \
+  while(!(REG(SSI0_BASE + SSI_O_SR) & SSI_SR_TNF)); \
+} while (0)
+
+#define SPI_TXBUF REG(SSI0_BASE + SSI_O_DR)
+
+#define SPI_WAITFOREOTx()
 /** @} */
 /*---------------------------------------------------------------------------*/
 /**
