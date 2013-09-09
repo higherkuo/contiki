@@ -62,8 +62,14 @@ typedef uint32_t rtimer_clock_t;
 } while (0)
 
 #define SPI_TXBUF REG(SSI0_BASE + SSI_O_DR)
+#define SPI_RXBUF REG(SSI0_BASE + SSI_O_DR)
 
-#define SPI_WAITFOREOTx()
+#define SPI_WAITFOREOTx() do { \
+  while(REG(SSI0_BASE + SSI_O_SR) & SSI_SR_BSY); \
+} while (0)
+#define SPI_WAITFOREORx() do { \
+  while(!(REG(SSI0_BASE + SSI_O_SR) & SSI_SR_RNE)); \
+} while (0)
 /** @} */
 /*---------------------------------------------------------------------------*/
 /**
