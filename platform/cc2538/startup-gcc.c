@@ -44,7 +44,8 @@
 
 #include <stdint.h>
 /*---------------------------------------------------------------------------*/
-extern int main(void);
+#pragma weak main
+extern int main(void) __attribute__((weak));
 /*---------------------------------------------------------------------------*/
 /* System handlers provided here */
 void reset_handler(void);
