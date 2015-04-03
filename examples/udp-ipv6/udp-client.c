@@ -37,7 +37,6 @@
 
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
-#include "net/uip-debug.h"
 
 #define SEND_INTERVAL		15 * CLOCK_SECOND
 #define MAX_PAYLOAD_LEN		40
@@ -55,7 +54,7 @@ tcpip_handler(void)
   if(uip_newdata()) {
     str = uip_appdata;
     str[uip_datalen()] = '\0';
-    PRINTF("Response from the server: '%s'\n", str);
+    printf("Response from the server: '%s'\n", str);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -65,10 +64,10 @@ timeout_handler(void)
 {
   static int seq_id;
 
-  PRINTF("Client sending to: ");
+  printf("Client sending to: ");
   PRINT6ADDR(&client_conn->ripaddr);
   sprintf(buf, "Hello %d from the client", ++seq_id);
-  PRINTF(" (msg: %s)\n", buf);
+  printf(" (msg: %s)\n", buf);
 #if SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION
   uip_udp_packet_send(client_conn, buf, UIP_APPDATA_SIZE);
 #else /* SEND_TOO_LARGE_PACKET_TO_TEST_FRAGMENTATION */
@@ -106,24 +105,18 @@ set_global_address(void)
 #endif /* UIP_CONF_ROUTER */
 /*---------------------------------------------------------------------------*/
 static resolv_status_t
-set_connection_address(uip_ipaddr_t *ipaddr
-#if RESOLV_CONF_SUPPORTS_MDNS && RESOLV_CONF_SUPPORTS_DNS_SD
-                                    , int *ipport
-#endif
-)
+set_connection_address(uip_ipaddr_t *ipaddr, int *port)
 {
 #ifndef UDP_CONNECTION_ADDR
 #if RESOLV_CONF_SUPPORTS_MDNS && RESOLV_CONF_SUPPORTS_DNS_SD
 #define UDP_CONNECTION_ADDR       _server._udp.local
 #elif RESOLV_CONF_SUPPORTS_MDNS
-#define UDP_CONNECTION_ADDR       con-serv.local
+#define UDP_CONNECTION_ADDR       contiki-udp-server.local
 #elif UIP_CONF_ROUTER
 #define UDP_CONNECTION_ADDR       aaaa:0:0:0:0212:7404:0004:0404
 #else
 #define UDP_CONNECTION_ADDR       fe80:0:0:0:6466:6666:6666:6666
-#if RESOLV_CONF_SUPPORTS_DNS_SD
-#endif /* RESOLV_CONF_SUPPORTS_DNS_SD */
-#endif /* RESOLV_CONF_SUPPORTS_MDNS */
+#endif
 #endif /* !UDP_CONNECTION_ADDR */
 
 #define _QUOTEME(x) #x
@@ -132,9 +125,12 @@ set_connection_address(uip_ipaddr_t *ipaddr
   resolv_status_t status = RESOLV_STATUS_ERROR;
 
   if(uiplib_ipaddrconv(QUOTEME(UDP_CONNECTION_ADDR), ipaddr) == 0) {
+    /*
+     * We are looking for a hostname and not an IP address.
+     */
     uip_ipaddr_t *resolved_addr = NULL;
-#if RESOLV_CONF_SUPPORTS_MDNS && RESOLV_CONF_SUPPORTS_DNS_SD
-    status = resolv_service_lookup(QUOTEME(UDP_CONNECTION_ADDR),&resolved_addr,ipport);
+#if RESOLV_CONF_SUPPORTS_DNS_SD
+    status = resolv_service_lookup(QUOTEME(UDP_CONNECTION_ADDR),&resolved_addr,port);
 #else
     status = resolv_lookup(QUOTEME(UDP_CONNECTION_ADDR),&resolved_addr);
 #endif
@@ -144,7 +140,7 @@ set_connection_address(uip_ipaddr_t *ipaddr
       status = RESOLV_STATUS_RESOLVING;
     } else if(status == RESOLV_STATUS_CACHED && resolved_addr != NULL
 #if RESOLV_CONF_SUPPORTS_MDNS && RESOLV_CONF_SUPPORTS_DNS_SD
-              && ipport != NULL
+              && port != NULL
 #endif
     ) {
       PRINTF("Lookup of \"%s\" succeded!\n",QUOTEME(UDP_CONNECTION_ADDR));
@@ -167,7 +163,7 @@ PROCESS_THREAD(udp_client_process, ev, data)
   static struct etimer et;
   uip_ipaddr_t ipaddr;
 #if RESOLV_CONF_SUPPORTS_MDNS && RESOLV_CONF_SUPPORTS_DNS_SD
-  int ipport = 0;
+  int port = 0;
 #endif
 
   PROCESS_BEGIN();
@@ -181,11 +177,11 @@ PROCESS_THREAD(udp_client_process, ev, data)
 
   static resolv_status_t status = RESOLV_STATUS_UNCACHED;
   while(status != RESOLV_STATUS_CACHED) {
-    status = set_connection_address(&ipaddr
 #if RESOLV_CONF_SUPPORTS_MDNS && RESOLV_CONF_SUPPORTS_DNS_SD
-                                    , &ipport
+    status = set_connection_address(&ipaddr, &port);
+#else
+    status = set_connection_address(&ipaddr, NULL);
 #endif
-    );
 
     if(status == RESOLV_STATUS_RESOLVING) {
       PROCESS_WAIT_EVENT_UNTIL(ev == resolv_event_found);
@@ -197,8 +193,8 @@ PROCESS_THREAD(udp_client_process, ev, data)
 
   /* new connection with remote host */
 #if RESOLV_CONF_SUPPORTS_MDNS && RESOLV_CONF_SUPPORTS_DNS_SD
-  client_conn = udp_new(&ipaddr, UIP_HTONS(ipport), NULL);
-  udp_bind(client_conn, UIP_HTONS(ipport + 1));
+  client_conn = udp_new(&ipaddr, UIP_HTONS(port), NULL);
+  udp_bind(client_conn, UIP_HTONS(port + 1));
 #else
   client_conn = udp_new(&ipaddr, UIP_HTONS(3000), NULL);
   udp_bind(client_conn, UIP_HTONS(3001));
